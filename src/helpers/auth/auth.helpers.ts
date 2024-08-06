@@ -67,10 +67,12 @@ export const decodeAccessToken = (accessToken: string) => {
     }
 };
 
+/* Get user from access token in headers */
 export const getUserFromAccessToken = async (accessToken: string): Promise<User | null> => {
     try {
         const decodedToken = decodeAccessToken(accessToken);
 
+        /* Invalid token */
         if (
             decodedToken instanceof JsonWebTokenError ||
             typeof decodedToken === "string" ||
@@ -79,8 +81,10 @@ export const getUserFromAccessToken = async (accessToken: string): Promise<User 
             return null;
         }
 
+        /* Find the user by id from the token payload */
         const usersFound = await db.select().from(users).where(eq(users.userId, decodedToken?.userId));
 
+        /* User not found, or is inactive */
         if(!usersFound.length || !usersFound[0].isActive){
             return null;
         }

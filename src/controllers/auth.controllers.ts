@@ -1,9 +1,9 @@
-import { users } from "db_service";
-import { eq, or } from "drizzle-orm";
+import { roleFeatureMapping, userCompanyMapping, users } from "db_service";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
 import { JsonWebTokenError } from "jsonwebtoken";
 
-import { db } from "../db";
+import { db, User } from "../db";
 import { LoginRequest, LoginResponse } from "../dto/auth/login_dto";
 import {
     RegisterUserRequest,
@@ -23,7 +23,15 @@ import {
     ResetPasswordRequest,
     ResetPasswordResponse,
 } from "../dto/auth/reset_password_dto";
-import { RefreshTokenRequest, RefreshTokenResponse } from "../dto/auth/refresh_token_dto";
+import {
+    RefreshTokenRequest,
+    RefreshTokenResponse,
+} from "../dto/auth/refresh_token_dto";
+import {
+    CheckAccessRequest,
+    CheckAccessResponse,
+} from "../dto/auth/check_access_dto";
+import { IsLoggedInResponse } from "../dto/auth/is_logged_in_dto";
 
 /* Register User Controller */
 export const registerUser = asyncHandler(
@@ -87,7 +95,9 @@ export const registerUser = asyncHandler(
             response.user = newUser[0];
         }
 
-        return res.status(201).json(new ApiResponse<RegisterUserResponse>(201, response));
+        return res
+            .status(201)
+            .json(new ApiResponse<RegisterUserResponse>(201, response));
     }
 );
 
@@ -237,7 +247,6 @@ export const logout = asyncHandler(
 
 export const resetPassword = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
-        
         /* User from auth middleware */
         const user = req?.user;
         if (!user) {
@@ -262,15 +271,76 @@ export const resetPassword = asyncHandler(
         /* Update password in db, and logout the user */
         await db
             .update(users)
-            .set({ password: newPasswordHash, isLoggedIn: false, refreshToken: null, updatedAt: new Date() })
+            .set({
+                password: newPasswordHash,
+                isLoggedIn: false,
+                refreshToken: null,
+                updatedAt: new Date(),
+            })
             .where(eq(users.userId, user.userId));
+
+        return res.status(200).json(
+            new ApiResponse<ResetPasswordResponse>(200, {
+                message: "password reset successfully",
+            })
+        );
+    }
+);
+
+export const isLoggedInController = asyncHandler(
+    async (req: Request, res: Response, next: NextFunction) => {
+        /* Request will only reach here if it passes the auth middleware, Indicating user is logged in */
 
         return res
             .status(200)
             .json(
-                new ApiResponse<ResetPasswordResponse>(200, {
-                    message: "password reset successfully",
+                new ApiResponse<IsLoggedInResponse>(200, {
+                    user: req.user as User,
+                    isLoggedIn: true,
                 })
             );
+    }
+);
+
+export const checkAccess = asyncHandler(
+    async (req: Request, res: Response, next: NextFunction) => {
+        /* User is not logged in */
+        if (!req.user) {
+            throw new ApiError(403, "invalid access token", []);
+        }
+        const body = req.body as CheckAccessRequest;
+
+        /* If companyId is null, then check would be "is null", else do a equality check */
+        const companyIdCheck = body.companyId
+            ? eq(userCompanyMapping.companyId, body.companyId)
+            : isNull(userCompanyMapping.companyId);
+        /* 
+        Finding if feature is accessible, by joining user company and role feature mappings.
+        */
+        const recordsFound = await db
+            .select({ featureId: roleFeatureMapping.featureId })
+            .from(userCompanyMapping)
+            .leftJoin(
+                roleFeatureMapping,
+                eq(userCompanyMapping.roleId, roleFeatureMapping.roleId)
+            )
+            .where(
+                and(
+                    eq(userCompanyMapping.userId, req.user.userId),
+                    companyIdCheck,
+                    eq(roleFeatureMapping.featureId, body.featureId)
+                )
+            );
+
+        /* No record found: Unauthorized */
+        if (!recordsFound.length) {
+            throw new ApiError(403, "unauthorized", []);
+        }
+
+        return res.status(200).json(
+            new ApiResponse<CheckAccessResponse>(200, {
+                isAuthorized: true,
+            })
+        );
     }
 );

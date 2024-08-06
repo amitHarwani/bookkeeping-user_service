@@ -1,4 +1,4 @@
-import { body } from "express-validator";
+import { body, oneOf } from "express-validator";
 
 export const registerUserValidator = () => {
     return [
@@ -77,3 +77,16 @@ export const resetPasswordValidator = () => {
             .withMessage("password must be 8 characters long"),
     ];
 };
+
+export const checkAccessValidator = () => {
+    return [
+        body("featureId")
+            .isNumeric().withMessage("invalid feature id"),
+        body("companyId").custom(value => {
+            if(isNaN(Number(value)) || value != null){
+                throw new Error("invalid company id");
+            }
+            return true;
+        })   
+    ]
+}

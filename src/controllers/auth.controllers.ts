@@ -87,7 +87,7 @@ export const registerUser = asyncHandler(
             response.user = newUser[0];
         }
 
-        return res.status(201).json(response);
+        return res.status(201).json(new ApiResponse<RegisterUserResponse>(201, response));
     }
 );
 

@@ -11,10 +11,10 @@ export const validateInput = (
     if (errors.isEmpty()) {
         return next();
     } else {
-        const errorList: Array<{[key: string]: string}> = [];
+        const errorList: Array<{[key: string]: string}> = [{}];
         errors.array().map((error) => {
             if (error.type === "field") {
-                errorList.push({ [error.path]: error.msg });
+                errorList[0] = { ...errorList[0], [error.path]: error.msg };
             }
         });
 

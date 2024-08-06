@@ -11,7 +11,7 @@ export const isUserLoggedIn = asyncHandler(async (req: Request, res: Response, n
 
     /* No bearer token provided */
     if(!token){
-        throw new ApiError(403, 'access token not found', []);
+        throw new ApiError(403, "access token not found", []);
     }
 
     /* Get user from token provided */
@@ -19,7 +19,10 @@ export const isUserLoggedIn = asyncHandler(async (req: Request, res: Response, n
 
     /* If no user is found or user is inActive or access token is invalid */
     if(userFound === null){
-        throw new ApiError(403, 'invalid access token', []);
+        throw new ApiError(403, "invalid access token", []);
+    }
+    if(!userFound.isLoggedIn){
+        throw new ApiError(403, "user is not logged in", []);
     }
 
     /* Set user object on request, call next route. */

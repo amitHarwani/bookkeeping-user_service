@@ -12,6 +12,7 @@ export const registerUserValidator = () => {
             .isString()
             .trim()
             .isEmail()
+            .withMessage("invalid email")
             .notEmpty()
             .escape()
             .withMessage("invalid email"),
@@ -29,7 +30,7 @@ export const registerUserValidator = () => {
             .notEmpty()
             .withMessage("mobile number is required"),
         body("isSubUser").isBoolean(),
-        body("logInOnRegisteration").isBoolean(),
+        body("logInOnRegistration").isBoolean(),
     ];
 };
 
@@ -39,6 +40,7 @@ export const loginValidator = () => {
             .isString()
             .trim()
             .isEmail()
+            .withMessage("invalid email")
             .notEmpty()
             .escape()
             .withMessage("invalid email"),

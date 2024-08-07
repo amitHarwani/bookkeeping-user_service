@@ -31,9 +31,9 @@ router.post(
 router.post("/logout", isUserLoggedIn, logout);
 router.post(
     "/reset-password",
-    isUserLoggedIn,
     resetPasswordValidator(),
     validateInput,
+    isUserLoggedIn,
     resetPassword
 );
 

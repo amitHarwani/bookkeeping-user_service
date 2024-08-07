@@ -10,6 +10,7 @@ import {
     RegisterUserResponse,
 } from "../dto/auth/register_user_dto";
 import {
+    checkUserAccessHelper,
     decodeRefreshToken,
     generateAccessToken,
     generateRefreshToken,
@@ -291,14 +292,12 @@ export const isLoggedInController = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
         /* Request will only reach here if it passes the auth middleware, Indicating user is logged in */
 
-        return res
-            .status(200)
-            .json(
-                new ApiResponse<IsLoggedInResponse>(200, {
-                    user: req.user as User,
-                    isLoggedIn: true,
-                })
-            );
+        return res.status(200).json(
+            new ApiResponse<IsLoggedInResponse>(200, {
+                user: req.user as User,
+                isLoggedIn: true,
+            })
+        );
     }
 );
 
@@ -310,35 +309,20 @@ export const checkAccess = asyncHandler(
         }
         const body = req.body as CheckAccessRequest;
 
-        /* If companyId is null, then check would be "is null", else do a equality check */
-        const companyIdCheck = body.companyId
-            ? eq(userCompanyMapping.companyId, body.companyId)
-            : isNull(userCompanyMapping.companyId);
-        /* 
-        Finding if feature is accessible, by joining user company and role feature mappings.
-        */
-        const recordsFound = await db
-            .select({ featureId: roleFeatureMapping.featureId })
-            .from(userCompanyMapping)
-            .leftJoin(
-                roleFeatureMapping,
-                eq(userCompanyMapping.roleId, roleFeatureMapping.roleId)
-            )
-            .where(
-                and(
-                    eq(userCompanyMapping.userId, req.user.userId),
-                    companyIdCheck,
-                    eq(roleFeatureMapping.featureId, body.featureId)
-                )
-            );
+        const isAuthorized = await checkUserAccessHelper(
+            body.companyId,
+            body.featureId,
+            req.user.userId
+        );
 
-        /* No record found: Unauthorized */
-        if (!recordsFound.length) {
+        /* Unauthorized */
+        if (!isAuthorized) {
             throw new ApiError(403, "unauthorized", []);
         }
 
         return res.status(200).json(
             new ApiResponse<CheckAccessResponse>(200, {
+                user: req.user,
                 isAuthorized: true,
             })
         );

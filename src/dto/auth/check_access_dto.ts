@@ -1,3 +1,5 @@
+import { User } from "../../db";
+
 export class CheckAccessRequest {
     constructor(
         public featureId: number,
@@ -9,6 +11,7 @@ export class CheckAccessRequest {
 
 export class CheckAccessResponse {
     constructor(
+        public user: User,
         public isAuthorized: boolean
     ){
 

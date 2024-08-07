@@ -1,8 +1,13 @@
 import argon2, { argon2i } from "argon2";
 import { db, User } from "../../db";
 import jwt, { JsonWebTokenError } from "jsonwebtoken";
-import { users } from "db_service";
-import { eq } from "drizzle-orm";
+import {
+    platformFeatures,
+    roleFeatureMapping,
+    userCompanyMapping,
+    users,
+} from "db_service";
+import { and, eq, isNull } from "drizzle-orm";
 
 /* Hash password with argon2 */
 export const hashPassword = async (password: string): Promise<string> => {
@@ -68,7 +73,9 @@ export const decodeAccessToken = (accessToken: string) => {
 };
 
 /* Get user from access token in headers */
-export const getUserFromAccessToken = async (accessToken: string): Promise<User | null> => {
+export const getUserFromAccessToken = async (
+    accessToken: string
+): Promise<User | null> => {
     try {
         const decodedToken = decodeAccessToken(accessToken);
 
@@ -82,16 +89,68 @@ export const getUserFromAccessToken = async (accessToken: string): Promise<User 
         }
 
         /* Find the user by id from the token payload */
-        const usersFound = await db.select().from(users).where(eq(users.userId, decodedToken?.userId));
+        const usersFound = await db
+            .select()
+            .from(users)
+            .where(eq(users.userId, decodedToken?.userId));
 
         /* User not found, or is inactive */
-        if(!usersFound.length || !usersFound[0].isActive){
+        if (!usersFound.length || !usersFound[0].isActive) {
             return null;
         }
 
         return usersFound[0];
-
     } catch (error) {
         return null;
     }
+};
+
+export const checkUserAccessHelper = async (
+    companyId: number,
+    featureId: number,
+    userId: string
+) => {
+    /* If companyId is null, then check would be "is null", else do a equality check */
+    const companyIdCheck = companyId
+        ? eq(userCompanyMapping.companyId, companyId)
+        : isNull(userCompanyMapping.companyId);
+    
+    /* 
+    Finding if feature is accessible and enabled, by joining user company and role feature mappings.
+    */
+    const recordsFound = await db
+        .select({
+            featureId: roleFeatureMapping.featureId,
+            isEnabled: platformFeatures.isEnabled,
+            featureName: platformFeatures.featureName,
+        })
+        .from(userCompanyMapping)
+        .leftJoin(
+            roleFeatureMapping,
+            eq(userCompanyMapping.roleId, roleFeatureMapping.roleId)
+        )
+        .leftJoin(
+            platformFeatures,
+            eq(roleFeatureMapping.featureId, platformFeatures.featureId)
+        )
+        .where(
+            and(
+                eq(userCompanyMapping.userId, userId),
+                companyIdCheck,
+                eq(roleFeatureMapping.featureId, featureId)
+            )
+        );
+    
+    /* If there is no feature with the featureId found */
+    if (!recordsFound.length) {
+        return false;
+    }
+
+    /* If companyId is null: System admin: Allow access even when isEnabled is false */
+    if(companyId == null){
+        return true;
+    }
+
+    /* Allow access if the feature is enabled */
+    return recordsFound[0].isEnabled;
 };

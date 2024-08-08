@@ -1,13 +1,11 @@
 import argon2, { argon2i } from "argon2";
-import { db, User } from "../../db";
-import jwt, { JsonWebTokenError } from "jsonwebtoken";
 import {
     platformFeatures,
-    roleFeatureMapping,
-    userCompanyMapping,
-    users,
+    userCompanyMapping
 } from "db_service";
 import { and, eq, isNull } from "drizzle-orm";
+import jwt, { JsonWebTokenError } from "jsonwebtoken";
+import { db, User } from "../../db";
 
 /* Hash password with argon2 */
 export const hashPassword = async (password: string): Promise<string> => {
@@ -72,38 +70,6 @@ export const decodeAccessToken = (accessToken: string) => {
     }
 };
 
-/* Get user from access token in headers */
-export const getUserFromAccessToken = async (
-    accessToken: string
-): Promise<User | null> => {
-    try {
-        const decodedToken = decodeAccessToken(accessToken);
-
-        /* Invalid token */
-        if (
-            decodedToken instanceof JsonWebTokenError ||
-            typeof decodedToken === "string" ||
-            (typeof decodedToken === "object" && !decodedToken?.userId)
-        ) {
-            return null;
-        }
-
-        /* Find the user by id from the token payload */
-        const usersFound = await db
-            .select()
-            .from(users)
-            .where(eq(users.userId, decodedToken?.userId));
-
-        /* User not found, or is inactive */
-        if (!usersFound.length || !usersFound[0].isActive) {
-            return null;
-        }
-
-        return usersFound[0];
-    } catch (error) {
-        return null;
-    }
-};
 
 export const checkUserAccessHelper = async (
     companyId: number,
@@ -114,43 +80,47 @@ export const checkUserAccessHelper = async (
     const companyIdCheck = companyId
         ? eq(userCompanyMapping.companyId, companyId)
         : isNull(userCompanyMapping.companyId);
-    
-    /* 
-    Finding if feature is accessible and enabled, by joining user company and role feature mappings.
-    */
-    const recordsFound = await db
+
+    /* Users ACL for the company */
+    const userACLDBRequest = db
         .select({
-            featureId: roleFeatureMapping.featureId,
-            isEnabled: platformFeatures.isEnabled,
-            featureName: platformFeatures.featureName,
+            acl: userCompanyMapping.acl,
         })
         .from(userCompanyMapping)
-        .leftJoin(
-            roleFeatureMapping,
-            eq(userCompanyMapping.roleId, roleFeatureMapping.roleId)
-        )
-        .leftJoin(
-            platformFeatures,
-            eq(roleFeatureMapping.featureId, platformFeatures.featureId)
-        )
-        .where(
-            and(
-                eq(userCompanyMapping.userId, userId),
-                companyIdCheck,
-                eq(roleFeatureMapping.featureId, featureId)
-            )
-        );
+        .where(and(eq(userCompanyMapping.userId, userId), companyIdCheck));
     
-    /* If there is no feature with the featureId found */
-    if (!recordsFound.length) {
+    /* Feature Details request */
+    const featureDBRequest = db
+        .select({
+            featureId: platformFeatures.featureId,
+            isEnabled: platformFeatures.isEnabled,
+        })
+        .from(platformFeatures)
+        .where(eq(platformFeatures.featureId, featureId));
+
+    /* Parallel requests to get feature details and users ACL for the particular company */
+    const [userACL, feature] = await Promise.all([userACLDBRequest, featureDBRequest])
+
+    /* If user is not assigned any role for the company or if featureId does not exist*/
+    if (!userACL.length || !feature.length) {
         return false;
     }
 
-    /* If companyId is null: System admin: Allow access even when isEnabled is false */
-    if(companyId == null){
-        return true;
-    }
+    /* ACL Array of featureIds */
+    const acl = userACL[0].acl;
 
-    /* Allow access if the feature is enabled */
-    return recordsFound[0].isEnabled;
+    /* If ACL includes the featureId */
+    if(Array.isArray(acl) && acl.includes(featureId)){
+        /* If companyId is null -> sysadmin request */
+        if(companyId == null){
+            return true;
+        }
+        /* Return based upon whether feature is enabled or not */
+        else{
+            return feature[0].isEnabled;
+        }
+    }
+    else{
+        return false;
+    }
 };

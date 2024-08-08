@@ -1,14 +1,27 @@
-import { roleFeatureMapping, userCompanyMapping, users } from "db_service";
-import { and, eq, isNull, or } from "drizzle-orm";
+import { users } from "db_service";
+import { eq, or } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
 import { JsonWebTokenError } from "jsonwebtoken";
 
 import { db, User } from "../db";
+import {
+    CheckAccessRequest,
+    CheckAccessResponse,
+} from "../dto/auth/check_access_dto";
+import { IsLoggedInResponse } from "../dto/auth/is_logged_in_dto";
 import { LoginRequest, LoginResponse } from "../dto/auth/login_dto";
+import {
+    RefreshTokenRequest,
+    RefreshTokenResponse,
+} from "../dto/auth/refresh_token_dto";
 import {
     RegisterUserRequest,
     RegisterUserResponse,
 } from "../dto/auth/register_user_dto";
+import {
+    ResetPasswordRequest,
+    ResetPasswordResponse,
+} from "../dto/auth/reset_password_dto";
 import {
     checkUserAccessHelper,
     decodeRefreshToken,
@@ -17,22 +30,9 @@ import {
     hashPassword,
     verifyHash,
 } from "../helpers/auth/auth.helpers";
-import { ApiResponse } from "../utils/ApiResponse";
 import { ApiError } from "../utils/ApiError";
+import { ApiResponse } from "../utils/ApiResponse";
 import asyncHandler from "../utils/async_handler";
-import {
-    ResetPasswordRequest,
-    ResetPasswordResponse,
-} from "../dto/auth/reset_password_dto";
-import {
-    RefreshTokenRequest,
-    RefreshTokenResponse,
-} from "../dto/auth/refresh_token_dto";
-import {
-    CheckAccessRequest,
-    CheckAccessResponse,
-} from "../dto/auth/check_access_dto";
-import { IsLoggedInResponse } from "../dto/auth/is_logged_in_dto";
 
 /* Register User Controller */
 export const registerUser = asyncHandler(

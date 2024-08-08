@@ -1,32 +1,54 @@
+import { users } from "db_service";
+import { eq } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
-import asyncHandler from "../utils/async_handler";
-import { getUserFromAccessToken } from "../helpers/auth/auth.helpers";
+import { JsonWebTokenError } from "jsonwebtoken";
+import { db } from "../db";
+import { decodeAccessToken } from "../helpers/auth/auth.helpers";
 import { ApiError } from "../utils/ApiError";
+import asyncHandler from "../utils/async_handler";
 
 
 export const isUserLoggedIn = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
 
-    /* Get bearer token from headers */
-    const token = req.header("Authorization")?.replace("Bearer ", "");
+        /* Get bearer token from headers */
+        const token = req.header("Authorization")?.replace("Bearer ", "");
+    
+        /* No bearer token provided */
+        if(!token){
+            throw new ApiError(403, "access token not found", []);
+        }
+        
+        const decodedToken = decodeAccessToken(token);
 
-    /* No bearer token provided */
-    if(!token){
-        throw new ApiError(403, "access token not found", []);
-    }
+        /* Invalid token */
+        if (
+            decodedToken instanceof JsonWebTokenError ||
+            typeof decodedToken === "string" ||
+            (typeof decodedToken === "object" && !decodedToken?.userId)
+        ) {
+            throw new ApiError(403, "invalid access token", []);
+        }
 
-    /* Get user from token provided */
-    const userFound = await getUserFromAccessToken(token);
+        /* Find the user by id from the token payload */
+        const usersFound = await db
+            .select()
+            .from(users)
+            .where(eq(users.userId, decodedToken.userId));
 
-    /* If no user is found or user is inActive or access token is invalid */
-    if(userFound === null){
-        throw new ApiError(403, "invalid access token", []);
-    }
-    if(!userFound.isLoggedIn){
-        throw new ApiError(403, "user is not logged in", []);
-    }
+        /* User not found, or is inactive */
+        if (!usersFound.length || !usersFound[0].isActive) {
+            throw new ApiError(403, "invalid access token", []);
+        }
+        if(!usersFound[0].isLoggedIn){
+            throw new ApiError(403, "user is not logged in", []);
+        }
 
-    /* Set user object on request, call next route. */
-    req.user = userFound;
-    next();
-})
+        /* Set user object on request, call next route. */
+        req.user = usersFound[0];
+
+        next();
+    })
+
+
+
 

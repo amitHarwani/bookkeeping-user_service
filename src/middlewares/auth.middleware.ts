@@ -7,17 +7,16 @@ import { decodeAccessToken } from "../helpers/auth/auth.helpers";
 import { ApiError } from "../utils/ApiError";
 import asyncHandler from "../utils/async_handler";
 
-
-export const isUserLoggedIn = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-
+export const isUserLoggedIn = asyncHandler(
+    async (req: Request, res: Response, next: NextFunction) => {
         /* Get bearer token from headers */
         const token = req.header("Authorization")?.replace("Bearer ", "");
-    
+
         /* No bearer token provided */
-        if(!token){
+        if (!token) {
             throw new ApiError(403, "access token not found", []);
         }
-        
+
         const decodedToken = decodeAccessToken(token);
 
         /* Invalid token */
@@ -39,7 +38,7 @@ export const isUserLoggedIn = asyncHandler(async (req: Request, res: Response, n
         if (!usersFound.length || !usersFound[0].isActive) {
             throw new ApiError(403, "invalid access token", []);
         }
-        if(!usersFound[0].isLoggedIn){
+        if (!usersFound[0].isLoggedIn) {
             throw new ApiError(403, "user is not logged in", []);
         }
 
@@ -47,8 +46,20 @@ export const isUserLoggedIn = asyncHandler(async (req: Request, res: Response, n
         req.user = usersFound[0];
 
         next();
-    })
+    }
+);
 
+export const canUserCreateCompany = asyncHandler(
+    async (req: Request, res: Response, next: NextFunction) => {
+        /* User is not logged in */
+        if (!req?.user) {
+            throw new ApiError(401, "user is not logged in", []);
+        }
 
-
-
+        /* User is a subUser: Hence not allowed to create a company */
+        if (req.user.isSubUser) {
+            throw new ApiError(403, "unauthorized to create a company", []);
+        }
+        next();
+    }
+);

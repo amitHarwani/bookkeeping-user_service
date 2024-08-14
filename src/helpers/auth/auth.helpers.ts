@@ -1,8 +1,5 @@
 import argon2, { argon2i } from "argon2";
-import {
-    platformFeatures,
-    userCompanyMapping
-} from "db_service";
+import { platformFeatures, roles, userCompanyMapping } from "db_service";
 import { and, eq, isNull } from "drizzle-orm";
 import jwt, { JsonWebTokenError } from "jsonwebtoken";
 import { db, User } from "../../db";
@@ -70,7 +67,6 @@ export const decodeAccessToken = (accessToken: string) => {
     }
 };
 
-
 export const checkUserAccessHelper = async (
     companyId: number,
     featureId: number,
@@ -82,13 +78,18 @@ export const checkUserAccessHelper = async (
         : isNull(userCompanyMapping.companyId);
 
     /* Users ACL for the company */
-    const userACLDBRequest = db
+    const userRoleDBRequest = await db
         .select({
-            acl: userCompanyMapping.acl,
+            roleId: userCompanyMapping.roleId,
         })
         .from(userCompanyMapping)
         .where(and(eq(userCompanyMapping.userId, userId), companyIdCheck));
-    
+
+    const userACLDBRequest = db
+        .select({acl: roles.acl})
+        .from(roles)
+        .where(eq(roles.roleId, userRoleDBRequest[0].roleId as number));
+
     /* Feature Details request */
     const featureDBRequest = db
         .select({
@@ -99,7 +100,10 @@ export const checkUserAccessHelper = async (
         .where(eq(platformFeatures.featureId, featureId));
 
     /* Parallel requests to get feature details and users ACL for the particular company */
-    const [userACL, feature] = await Promise.all([userACLDBRequest, featureDBRequest])
+    const [userACL, feature] = await Promise.all([
+        userACLDBRequest,
+        featureDBRequest,
+    ]);
 
     /* If user is not assigned any role for the company or if featureId does not exist*/
     if (!userACL.length || !feature.length) {
@@ -110,17 +114,15 @@ export const checkUserAccessHelper = async (
     const acl = userACL[0].acl;
 
     /* If ACL includes the featureId */
-    if(Array.isArray(acl) && acl.includes(featureId)){
+    if (Array.isArray(acl) && acl.includes(featureId)) {
         /* If companyId is null -> sysadmin request */
-        if(companyId == null){
+        if (companyId == null) {
             return true;
-        }
+        } else {
         /* Return based upon whether feature is enabled or not */
-        else{
             return feature[0].isEnabled;
         }
-    }
-    else{
+    } else {
         return false;
     }
 };

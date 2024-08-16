@@ -1,22 +1,23 @@
+import axios from "axios";
+import {
+    companies,
+    companyTaxMapping,
+    defaultFeatures,
+    roles,
+    userCompanyMapping,
+} from "db_service";
+import { eq, inArray, sql } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
-import asyncHandler from "../utils/async_handler";
+import { PostgresError } from "postgres";
+import { db, TaxDetail } from "../db";
 import {
     AddCompanyRequest,
     AddCompanyResponse,
 } from "../dto/company/add_company_dto";
-import { db } from "../db";
-import {
-    companies,
-    defaultFeatures,
-    roles,
-    userCompanyMapping,
-    userTypes,
-} from "db_service";
-import { ApiResponse } from "../utils/ApiResponse";
-import { eq, inArray, sql } from "drizzle-orm";
-import { ApiError } from "../utils/ApiError";
-import { PostgresError } from "postgres";
 import { GetAccessibleCompaniesResponse } from "../dto/company/get_accessible_companies_dto";
+import { ApiError } from "../utils/ApiError";
+import { ApiResponse } from "../utils/ApiResponse";
+import asyncHandler from "../utils/async_handler";
 
 export const addCompany = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
@@ -34,6 +35,53 @@ export const addCompany = asyncHandler(
                 "company with the same name already exists",
                 []
             );
+        }
+        
+        /* Getting taxDetails of country */
+        const taxDetailsOfCountryRequest = await axios.get<
+            ApiResponse<{ taxDetails: TaxDetail[] }>
+        >(
+            `${process.env.SYSTEM_ADMIN_SERVICE}${process.env.GET_TAXDETAILS_OF_COUNTRY_PATH}/${body.countryId}`
+        );
+
+        const taxDetailsOfCountry =
+            taxDetailsOfCountryRequest.data.data.taxDetails;
+
+        /* To store taxIds which are mandatory in a map */
+        let mandatoryTaxIdsMap = new Map();
+
+        /* To store all taxIds of the country as a map */
+        let taxDetailsOfCountryAsMap = new Map();
+
+        /* Looping through tax details of the country */
+        taxDetailsOfCountry.forEach((tax) => {
+            /* If the tax is mandatory */
+            if (!tax.isRegistrationOptional) {
+                /* Set it in mandatoryTaxIdsMap */
+                mandatoryTaxIdsMap.set(tax.taxId, true);
+            }
+            taxDetailsOfCountryAsMap.set(tax.taxId, tax);
+        });
+
+        /* Looping through the taxDetails passed */
+        body.taxDetails?.forEach((taxDetail) => {
+            /* If the taxId does not exist in tax details of the country: throw error */
+            if (!taxDetailsOfCountryAsMap.get(taxDetail.taxId)) {
+                throw new ApiError(
+                    422,
+                    "invalid taxid passed in taxDetails",
+                    []
+                );
+            }
+            /* If the tax id passed is mandatory, remove it from the map */
+            if (mandatoryTaxIdsMap.get(taxDetail.taxId)) {
+                mandatoryTaxIdsMap.delete(taxDetail.taxId);
+            }
+        });
+
+        /* If the mandatoryTaxIds map still consists of elements: throw error, some mandatory tax ids aren't passed */
+        if (mandatoryTaxIdsMap.size) {
+            throw new ApiError(422, "missing mandatory tax details", []);
         }
 
         await db.transaction(async (tx) => {
@@ -59,6 +107,17 @@ export const addCompany = asyncHandler(
 
                 if (!newCompany.length) {
                     throw new ApiError(500, "error creating company", []);
+                }
+
+                /* Inserting tax details in companyTaxMapping */
+                if (Array.isArray(body?.taxDetails)) {
+                    for (let taxDetail of body.taxDetails) {
+                        await tx.insert(companyTaxMapping).values({
+                            companyId: newCompany[0].companyId,
+                            taxId: taxDetail.taxId,
+                            registrationNumber: taxDetail.registrationNumber,
+                        });
+                    }
                 }
 
                 /* Company ID of the company created */
@@ -134,7 +193,6 @@ export const addCompany = asyncHandler(
 
 export const getAccessibleCompanies = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
-
         /* Getting company ids accessible from userCompanyMapping table */
         const companyIdsAccessible = await db
             .select({ companyId: userCompanyMapping.companyId })
@@ -150,14 +208,44 @@ export const getAccessibleCompanies = asyncHandler(
         });
 
         /* Finding the companies with id in companyIdsList */
-        const companiesList = await db
+        const companiesListRequest = db
             .select()
             .from(companies)
             .where(inArray(companies.companyId, companyIdsList));
 
+        /* Finding the companies tax details */
+        const companyTaxDetailsRequest = db
+            .select()
+            .from(companyTaxMapping)
+            .where(inArray(companyTaxMapping.companyId, companyIdsList));
+
+        /* Parallel request */
+        const [companiesList, companyTaxDetails] = await Promise.all([
+            companiesListRequest,
+            companyTaxDetailsRequest,
+        ]);
+
+        /* Map of all the companies */
+        let companiesMap = new Map();
+
+        /* Adding company details to the map */
+        companiesList.forEach((company) => {
+            companiesMap.set(company.companyId, { ...company, taxDetails: [] });
+        });
+
+        /* Adding companies tax detail to the map, as an array of taxDetails for each company */
+        companyTaxDetails.forEach((taxDetail) => {
+            const company = companiesMap.get(taxDetail.companyId);
+            company.taxDetails.push({
+                taxId: taxDetail.taxId,
+                registrationNumber: taxDetail.registrationNumber,
+            });
+            companiesMap.set(taxDetail.companyId, company);
+        });
+
         return res.status(200).json(
             new ApiResponse<GetAccessibleCompaniesResponse>(200, {
-                companies: companiesList,
+                companies: Array.from(companiesMap.values()),
             })
         );
     }

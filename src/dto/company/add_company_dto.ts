@@ -9,14 +9,14 @@ export class AddCompanyRequest {
         public dayStartTime: string,
         public isMainBranch: boolean,
         public decimalRoundTo: number,
-        public mainBranchId?: number
+        public mainBranchId?: number,
+        public taxDetails?: Array<{ taxId: number; registrationNumber: string }>
     ) {}
 }
-
 
 export class AddCompanyResponse {
     constructor(
         public company: Company,
         public message: string
-    ){}
+    ) {}
 }

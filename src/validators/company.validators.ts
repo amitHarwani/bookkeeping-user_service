@@ -26,11 +26,11 @@ export const addCompanyValidator = () => {
             .trim()
             .notEmpty()
             .withMessage("day start time is required")
-            .custom(value => {
-                if(/^((?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d$)/.test(value)){
+            .custom((value) => {
+                if (/^((?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d$)/.test(value)) {
                     return true;
                 }
-                throw new Error("invalid day start time")
+                throw new Error("invalid day start time");
             }),
         body("isMainBranch")
             .isBoolean()
@@ -38,7 +38,7 @@ export const addCompanyValidator = () => {
         body("decimalRoundTo")
             .isInt()
             .withMessage("invalid decimalRoundTo field"),
-        body("mainBranchId") 
+        body("mainBranchId")
             .if(
                 body("isMainBranch").custom((value) => {
                     /* If the company is not a main branch -> Main branch id should exist */
@@ -50,5 +50,24 @@ export const addCompanyValidator = () => {
             )
             .isInt()
             .withMessage("main branch id is required"),
+        body("taxDetails").custom((value) => {
+            /* If value does not exist: No tax details */
+            if (!value) {
+                return true;
+            }
+            /* Ensuring taxDetails are in appropriate format */
+            if (Array.isArray(value)) {
+                value.forEach((taxDetail) => {
+                    if (
+                        typeof taxDetail?.taxId != "number" ||
+                        typeof taxDetail?.registrationNumber != "string"
+                    ) {
+                        throw new Error("invalid taxDetails field");
+                    }
+                });
+                return true;
+            }
+            throw new Error("invalid taxDetails field");
+        }),
     ];
 };

@@ -13,6 +13,7 @@
   "description": "",
   "dependencies": {
     "argon2": "^0.40.3",
+    "axios": "^1.7.4",
     "db_service": "github:amitHarwani/bookkeeping-db_service",
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.32.1",

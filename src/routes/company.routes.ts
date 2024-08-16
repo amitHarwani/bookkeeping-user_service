@@ -3,9 +3,16 @@ import {
     canUserCreateCompany,
     isUserLoggedIn,
 } from "../middlewares/auth.middleware";
-import { addCompanyValidator } from "../validators/company.validators";
+import {
+    addCompanyValidator,
+    getCompanyValidator,
+} from "../validators/company.validators";
 import { validateInput } from "../validators";
-import { addCompany, getAccessibleCompanies } from "../controllers/company.controllers";
+import {
+    addCompany,
+    getAccessibleCompanies,
+    getCompany,
+} from "../controllers/company.controllers";
 
 const router = Router();
 
@@ -18,6 +25,14 @@ router.post(
     addCompany
 );
 
-router.get("/get-accessible-companies", isUserLoggedIn, getAccessibleCompanies)
+router.get("/get-accessible-companies", isUserLoggedIn, getAccessibleCompanies);
+
+router.get(
+    "/get-company/:companyId",
+    getCompanyValidator(),
+    validateInput,
+    isUserLoggedIn,
+    getCompany
+);
 
 export default router;

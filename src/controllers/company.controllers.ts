@@ -6,7 +6,7 @@ import {
     roles,
     userCompanyMapping,
 } from "db_service";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
 import { PostgresError } from "postgres";
 import { db, TaxDetail } from "../db";
@@ -14,10 +14,14 @@ import {
     AddCompanyRequest,
     AddCompanyResponse,
 } from "../dto/company/add_company_dto";
-import { GetAccessibleCompaniesResponse } from "../dto/company/get_accessible_companies_dto";
+import {
+    CompanyWithTaxDetails,
+    GetAccessibleCompaniesResponse,
+} from "../dto/company/get_accessible_companies_dto";
 import { ApiError } from "../utils/ApiError";
 import { ApiResponse } from "../utils/ApiResponse";
 import asyncHandler from "../utils/async_handler";
+import { GetCompanyResponse } from "../dto/company/get_company_dto";
 
 export const addCompany = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
@@ -36,7 +40,7 @@ export const addCompany = asyncHandler(
                 []
             );
         }
-        
+
         /* Getting taxDetails of country */
         const taxDetailsOfCountryRequest = await axios.get<
             ApiResponse<{ taxDetails: TaxDetail[] }>
@@ -248,5 +252,70 @@ export const getAccessibleCompanies = asyncHandler(
                 companies: Array.from(companiesMap.values()),
             })
         );
+    }
+);
+
+export const getCompany = asyncHandler(
+    async (req: Request, res: Response, next: NextFunction) => {
+        const companyId = Number(req.params.companyId);
+
+        /* Checking if user has access to the company */
+        const companyIdsAccessible = await db
+            .select({ companyId: userCompanyMapping.companyId })
+            .from(userCompanyMapping)
+            .where(
+                and(
+                    eq(userCompanyMapping.userId, req.user?.userId as string),
+                    eq(userCompanyMapping.companyId, companyId)
+                )
+            );
+
+        /* If user doesn't have access */
+        if (!companyIdsAccessible.length) {
+            throw new ApiError(
+                404,
+                "unauthorized, company access not found",
+                []
+            );
+        }
+
+        /* Getting company details, and companies tax details */
+        const companyDetailsRequest = db
+            .select()
+            .from(companies)
+            .where(eq(companies.companyId, companyId));
+
+        const companyTaxDetailsRequest = db
+            .select()
+            .from(companyTaxMapping)
+            .where(eq(companyTaxMapping.companyId, companyId));
+
+        const [companyDetails, companyTaxDetails] = await Promise.all([
+            companyDetailsRequest,
+            companyTaxDetailsRequest,
+        ]);
+
+        /* Company not found */
+        if (!companyDetails.length) {
+            throw new ApiError(404, "company not found", []);
+        }
+
+        /* Forming the CompanyWithTaxDetails response */
+        let response: CompanyWithTaxDetails = {
+            ...companyDetails[0],
+            taxDetails: [],
+        };
+        companyTaxDetails.forEach((tax) => {
+            response.taxDetails.push({
+                taxId: tax.taxId,
+                registrationNumber: tax.registrationNumber,
+            });
+        });
+
+        return res
+            .status(200)
+            .json(
+                new ApiResponse<GetCompanyResponse>(200, { company: response })
+            );
     }
 );

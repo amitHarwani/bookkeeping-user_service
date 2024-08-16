@@ -1,4 +1,4 @@
-import { body } from "express-validator";
+import { body, param } from "express-validator";
 
 export const addCompanyValidator = () => {
     return [
@@ -71,3 +71,10 @@ export const addCompanyValidator = () => {
         }),
     ];
 };
+
+
+export const getCompanyValidator = () => {
+    return [
+        param("companyId").isInt().withMessage("invalid company id")
+    ]
+}

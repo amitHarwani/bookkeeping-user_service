@@ -113,14 +113,20 @@ export const addCompany = asyncHandler(
                     throw new ApiError(500, "error creating company", []);
                 }
 
+                /* Holds the companies tax details added */
+                let newCompanyTaxDetails: Array<{taxId: number, registrationNumber: string}> = []
+
                 /* Inserting tax details in companyTaxMapping */
                 if (Array.isArray(body?.taxDetails)) {
                     for (let taxDetail of body.taxDetails) {
-                        await tx.insert(companyTaxMapping).values({
+                        const newCompanyTax = await tx.insert(companyTaxMapping).values({
                             companyId: newCompany[0].companyId,
                             taxId: taxDetail.taxId,
                             registrationNumber: taxDetail.registrationNumber,
-                        });
+                        }).returning({taxId: companyTaxMapping.taxId, registrationNumber: companyTaxMapping.registrationNumber});
+                        
+                        /* Adding the inserted tax mapping to the list */
+                        newCompanyTaxDetails.push(newCompanyTax[0]);
                     }
                 }
 
@@ -181,7 +187,7 @@ export const addCompany = asyncHandler(
                 /* Returning the newly created company */
                 return res.status(201).json(
                     new ApiResponse<AddCompanyResponse>(201, {
-                        company: newCompany[0],
+                        company: {...newCompany[0], taxDetails: newCompanyTaxDetails},
                         message: "company created successfully",
                     })
                 );

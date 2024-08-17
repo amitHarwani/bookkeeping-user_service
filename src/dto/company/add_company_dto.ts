@@ -1,4 +1,5 @@
 import { Company } from "../../db";
+import { CompanyWithTaxDetails } from "./get_accessible_companies_dto";
 
 export class AddCompanyRequest {
     constructor(
@@ -16,7 +17,7 @@ export class AddCompanyRequest {
 
 export class AddCompanyResponse {
     constructor(
-        public company: Company,
+        public company: CompanyWithTaxDetails,
         public message: string
     ) {}
 }

@@ -121,21 +121,21 @@ export const login = asyncHandler(
         }
 
         /* Check if user is already logged in */
-        if (usersFound[0].isLoggedIn && usersFound[0].refreshToken) {
-            /* Decode refresh token */
-            const decodedRefreshToken = decodeRefreshToken(
-                usersFound[0].refreshToken
-            );
+        // if (usersFound[0].isLoggedIn && usersFound[0].refreshToken) {
+        //     /* Decode refresh token */
+        //     const decodedRefreshToken = decodeRefreshToken(
+        //         usersFound[0].refreshToken
+        //     );
 
-            /* If token is not an instance of JWT Error, that means token is not expired yet */
-            if (!(decodedRefreshToken instanceof JsonWebTokenError)) {
-                throw new ApiError(
-                    409,
-                    "user session is active, please logout and try again",
-                    []
-                );
-            }
-        }
+        //     /* If token is not an instance of JWT Error, that means token is not expired yet */
+        //     if (!(decodedRefreshToken instanceof JsonWebTokenError)) {
+        //         throw new ApiError(
+        //             409,
+        //             "user session is active, please logout and try again",
+        //             []
+        //         );
+        //     }
+        // }
 
         /* Check if password is correct */
         const isPasswordCorrect = await verifyHash(
@@ -211,13 +211,15 @@ export const refreshToken = asyncHandler(
         const refreshToken = generateRefreshToken(usersFound[0]);
 
         /* Update refresh token and isLoggedIn in db */
-        await db
+        const updatedUser = await db
             .update(users)
             .set({ refreshToken: refreshToken, isLoggedIn: true })
-            .where(eq(users.userId, usersFound[0].userId));
+            .where(eq(users.userId, usersFound[0].userId))
+            .returning();
 
         return res.status(200).json(
             new ApiResponse<RefreshTokenResponse>(200, {
+                user: updatedUser[0],
                 accessToken,
                 refreshToken,
             })
@@ -251,7 +253,7 @@ export const resetPassword = asyncHandler(
         /* User from auth middleware */
         const user = req?.user;
         if (!user) {
-            throw new ApiError(403, "invalid access token", []);
+            throw new ApiError(401, "invalid access token", []);
         }
 
         const body = req.body as ResetPasswordRequest;
@@ -305,7 +307,7 @@ export const checkAccess = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
         /* User is not logged in */
         if (!req.user) {
-            throw new ApiError(403, "invalid access token", []);
+            throw new ApiError(401, "invalid access token", []);
         }
         const body = req.body as CheckAccessRequest;
 

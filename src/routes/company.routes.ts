@@ -1,6 +1,5 @@
 import { Router } from "express";
 import {
-    canUserCreateCompany,
     isUserLoggedIn,
 } from "../middlewares/auth.middleware";
 import {
@@ -13,6 +12,7 @@ import {
     getAccessibleCompanies,
     getCompany,
 } from "../controllers/company.controllers";
+import { canUserCreateCompany } from "../middlewares/company.middleware";
 
 const router = Router();
 

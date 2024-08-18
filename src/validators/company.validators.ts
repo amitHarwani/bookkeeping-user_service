@@ -78,3 +78,9 @@ export const getCompanyValidator = () => {
         param("companyId").isInt().withMessage("invalid company id")
     ]
 }
+
+export const getAccessibleFeaturesOfCompanyValidator = () => {
+    return [
+        param("companyId").isInt().withMessage("invalid company id")
+    ]
+}

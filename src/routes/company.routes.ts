@@ -1,15 +1,15 @@
 import { Router } from "express";
-import {
-    isUserLoggedIn,
-} from "../middlewares/auth.middleware";
+import { isUserLoggedIn } from "../middlewares/auth.middleware";
 import {
     addCompanyValidator,
+    getAccessibleFeaturesOfCompanyValidator,
     getCompanyValidator,
 } from "../validators/company.validators";
 import { validateInput } from "../validators";
 import {
     addCompany,
     getAccessibleCompanies,
+    getAccessibleFeaturesOfCompany,
     getCompany,
 } from "../controllers/company.controllers";
 import { canUserCreateCompany } from "../middlewares/company.middleware";
@@ -33,6 +33,14 @@ router.get(
     validateInput,
     isUserLoggedIn,
     getCompany
+);
+
+router.get(
+    "/get-accessible-features-of-company/:companyId",
+    getAccessibleFeaturesOfCompanyValidator(),
+    validateInput,
+    isUserLoggedIn,
+    getAccessibleFeaturesOfCompany
 );
 
 export default router;

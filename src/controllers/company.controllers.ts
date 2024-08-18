@@ -22,6 +22,7 @@ import { ApiError } from "../utils/ApiError";
 import { ApiResponse } from "../utils/ApiResponse";
 import asyncHandler from "../utils/async_handler";
 import { GetCompanyResponse } from "../dto/company/get_company_dto";
+import { GetAccessibleFeaturesOfCompanyResponse } from "../dto/company/get_accessible_features_of_company";
 
 export const addCompany = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
@@ -114,17 +115,28 @@ export const addCompany = asyncHandler(
                 }
 
                 /* Holds the companies tax details added */
-                let newCompanyTaxDetails: Array<{taxId: number, registrationNumber: string}> = []
+                let newCompanyTaxDetails: Array<{
+                    taxId: number;
+                    registrationNumber: string;
+                }> = [];
 
                 /* Inserting tax details in companyTaxMapping */
                 if (Array.isArray(body?.taxDetails)) {
                     for (let taxDetail of body.taxDetails) {
-                        const newCompanyTax = await tx.insert(companyTaxMapping).values({
-                            companyId: newCompany[0].companyId,
-                            taxId: taxDetail.taxId,
-                            registrationNumber: taxDetail.registrationNumber,
-                        }).returning({taxId: companyTaxMapping.taxId, registrationNumber: companyTaxMapping.registrationNumber});
-                        
+                        const newCompanyTax = await tx
+                            .insert(companyTaxMapping)
+                            .values({
+                                companyId: newCompany[0].companyId,
+                                taxId: taxDetail.taxId,
+                                registrationNumber:
+                                    taxDetail.registrationNumber,
+                            })
+                            .returning({
+                                taxId: companyTaxMapping.taxId,
+                                registrationNumber:
+                                    companyTaxMapping.registrationNumber,
+                            });
+
                         /* Adding the inserted tax mapping to the list */
                         newCompanyTaxDetails.push(newCompanyTax[0]);
                     }
@@ -187,7 +199,10 @@ export const addCompany = asyncHandler(
                 /* Returning the newly created company */
                 return res.status(201).json(
                     new ApiResponse<AddCompanyResponse>(201, {
-                        company: {...newCompany[0], taxDetails: newCompanyTaxDetails},
+                        company: {
+                            ...newCompany[0],
+                            taxDetails: newCompanyTaxDetails,
+                        },
                         message: "company created successfully",
                     })
                 );
@@ -323,5 +338,46 @@ export const getCompany = asyncHandler(
             .json(
                 new ApiResponse<GetCompanyResponse>(200, { company: response })
             );
+    }
+);
+
+export const getAccessibleFeaturesOfCompany = asyncHandler(
+    async (req: Request, res: Response, next: NextFunction) => {
+
+        /* User Id from request object and companyId from params */
+        const userId = req.user?.userId;
+        const companyId = Number(req.params.companyId);
+
+        /* Find the roleId of the user for the passed companyId */
+        const userRole = await db
+            .select({ roleId: userCompanyMapping.roleId })
+            .from(userCompanyMapping)
+            .where(
+                and(
+                    eq(userCompanyMapping.userId, userId as string),
+                    eq(userCompanyMapping.companyId, companyId)
+                )
+            );
+
+        /* No role found */
+        if (!userRole.length || !userRole[0].roleId) {
+            throw new ApiError(403, "unauthorized to access the company", []);
+        }
+
+        /* Getting the ACL for the role */
+        const acl = await db
+            .select({ acl: roles.acl })
+            .from(roles)
+            .where(eq(roles.roleId, userRole[0].roleId));
+
+        if (!acl.length || !Array.isArray(acl[0].acl)) {
+            throw new ApiError(404, "role not found", []);
+        }
+
+        return res.status(200).json(
+            new ApiResponse<GetAccessibleFeaturesOfCompanyResponse>(200, {
+                acl: acl[0].acl,
+            })
+        );
     }
 );

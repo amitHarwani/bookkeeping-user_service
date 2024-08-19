@@ -32,7 +32,7 @@ export const addCompany = asyncHandler(
         const existingCompaniesWithSameName = await db
             .select()
             .from(companies)
-            .where(eq(sql`lower(${companies.companyName})`, body.companyName));
+            .where(eq(sql`lower(${companies.companyName})`, body.companyName.toLowerCase()));
 
         if (existingCompaniesWithSameName.length) {
             throw new ApiError(

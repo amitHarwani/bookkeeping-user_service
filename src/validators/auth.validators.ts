@@ -83,10 +83,10 @@ export const checkAccessValidator = () => {
         body("featureId")
             .isNumeric().withMessage("invalid feature id"),
         body("companyId").custom(value => {
-            if(isNaN(Number(value)) || value != null){
-                throw new Error("invalid company id");
+            if(!isNaN(Number(value)) || value == null){
+                return true;
             }
-            return true;
+            throw new Error("invalid company id");
         })   
     ]
 }

@@ -23,6 +23,7 @@ import { ApiResponse } from "../utils/ApiResponse";
 import asyncHandler from "../utils/async_handler";
 import { GetCompanyResponse } from "../dto/company/get_company_dto";
 import { GetAccessibleFeaturesOfCompanyResponse } from "../dto/company/get_accessible_features_of_company";
+import { USER_TYPES } from "../constants";
 
 export const addCompany = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
@@ -149,7 +150,7 @@ export const addCompany = asyncHandler(
                 const defaultAdminFeatures = await tx
                     .select()
                     .from(defaultFeatures)
-                    .where(eq(defaultFeatures.userType, "DEFAULT_ADMIN_USER"));
+                    .where(eq(defaultFeatures.userType, USER_TYPES.DEFAULT_ADMIN_USER));
 
                 if (!defaultAdminFeatures.length) {
                     throw new ApiError(

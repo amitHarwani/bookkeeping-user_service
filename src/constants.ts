@@ -1,0 +1,3 @@
+export enum USER_TYPES {
+    DEFAULT_ADMIN_USER = "DEFAULT_ADMIN_USER"
+}

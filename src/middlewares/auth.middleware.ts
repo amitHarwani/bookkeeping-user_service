@@ -3,7 +3,10 @@ import { eq } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
 import { JsonWebTokenError } from "jsonwebtoken";
 import { db } from "../db";
-import { decodeAccessToken } from "../helpers/auth/auth.helpers";
+import {
+    checkUserAccessHelper,
+    decodeAccessToken,
+} from "../helpers/auth/auth.helpers";
 import { ApiError } from "../utils/ApiError";
 import asyncHandler from "../utils/async_handler";
 
@@ -49,3 +52,30 @@ export const isUserLoggedIn = asyncHandler(
     }
 );
 
+export const checkAccessMiddleware = (
+    featureId: number,
+    companyId?: number | null
+) => {
+    return asyncHandler(
+        async (req: Request, res: Response, next: NextFunction) => {
+            /* CompanyId either passed as parameter, or from request body */
+            const company = req?.body?.companyId
+                ? req.body.companyId
+                : companyId;
+
+            /* Checking if user has access */
+            const isAuthorized = await checkUserAccessHelper(
+                company,
+                featureId,
+                req?.user?.userId as string
+            );
+
+            /* If user has access call next middleware, else throw unauthorized error */
+            if (isAuthorized) {
+                next();
+            } else {
+                throw new ApiError(403, "unauthorized", []);
+            }
+        }
+    );
+};

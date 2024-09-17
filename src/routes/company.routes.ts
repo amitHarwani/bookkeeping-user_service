@@ -1,9 +1,13 @@
 import { Router } from "express";
-import { isUserLoggedIn } from "../middlewares/auth.middleware";
+import {
+    checkAccessMiddleware,
+    isUserLoggedIn,
+} from "../middlewares/auth.middleware";
 import {
     addCompanyValidator,
     getAccessibleFeaturesOfCompanyValidator,
     getCompanyValidator,
+    updateCompanyValidator,
 } from "../validators/company.validators";
 import { validateInput } from "../validators";
 import {
@@ -11,6 +15,7 @@ import {
     getAccessibleCompanies,
     getAccessibleFeaturesOfCompany,
     getCompany,
+    updateCompany,
 } from "../controllers/company.controllers";
 import { canUserCreateCompany } from "../middlewares/company.middleware";
 
@@ -23,6 +28,15 @@ router.post(
     isUserLoggedIn,
     canUserCreateCompany,
     addCompany
+);
+
+router.put(
+    "/update-company",
+    updateCompanyValidator(),
+    validateInput,
+    isUserLoggedIn,
+    checkAccessMiddleware(22),
+    updateCompany
 );
 
 router.get("/get-accessible-companies", isUserLoggedIn, getAccessibleCompanies);

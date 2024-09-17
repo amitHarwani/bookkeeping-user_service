@@ -6,7 +6,7 @@ import {
     roles,
     userCompanyMapping,
 } from "db_service";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, not, sql } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
 import { PostgresError } from "postgres";
 import { db, TaxDetail } from "../db";
@@ -24,6 +24,10 @@ import asyncHandler from "../utils/async_handler";
 import { GetCompanyResponse } from "../dto/company/get_company_dto";
 import { GetAccessibleFeaturesOfCompanyResponse } from "../dto/company/get_accessible_features_of_company";
 import { USER_TYPES } from "../constants";
+import {
+    UpdateCompanyRequest,
+    UpdateCompanyResponse,
+} from "../dto/company/update_company_dto";
 
 export const addCompany = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
@@ -33,7 +37,12 @@ export const addCompany = asyncHandler(
         const existingCompaniesWithSameName = await db
             .select()
             .from(companies)
-            .where(eq(sql`lower(${companies.companyName})`, body.companyName.toLowerCase()));
+            .where(
+                eq(
+                    sql`lower(${companies.companyName})`,
+                    body.companyName.toLowerCase()
+                )
+            );
 
         if (existingCompaniesWithSameName.length) {
             throw new ApiError(
@@ -150,7 +159,12 @@ export const addCompany = asyncHandler(
                 const defaultAdminFeatures = await tx
                     .select()
                     .from(defaultFeatures)
-                    .where(eq(defaultFeatures.userType, USER_TYPES.DEFAULT_ADMIN_USER));
+                    .where(
+                        eq(
+                            defaultFeatures.userType,
+                            USER_TYPES.DEFAULT_ADMIN_USER
+                        )
+                    );
 
                 if (!defaultAdminFeatures.length) {
                     throw new ApiError(
@@ -217,6 +231,152 @@ export const addCompany = asyncHandler(
     }
 );
 
+export const updateCompany = asyncHandler(
+    async (req: Request, res: Response, next: NextFunction) => {
+        const body = req.body as UpdateCompanyRequest;
+
+        /* Check if company with the same name exists which is not of the same company id */
+        const existingCompaniesWithSameName = await db
+            .select()
+            .from(companies)
+            .where(
+                and(
+                    eq(
+                        sql`lower(${companies.companyName})`,
+                        body.companyName.toLowerCase()
+                    ),
+                    not(eq(companies.companyId, body.companyId))
+                )
+            );
+
+        if (existingCompaniesWithSameName.length) {
+            throw new ApiError(
+                409,
+                "company with the same name already exists",
+                []
+            );
+        }
+
+        /* Getting taxDetails of country */
+        const taxDetailsOfCountryRequest = await axios.get<
+            ApiResponse<{ taxDetails: TaxDetail[] }>
+        >(
+            `${process.env.SYSTEM_ADMIN_SERVICE}${process.env.GET_TAXDETAILS_OF_COUNTRY_PATH}/${body.countryId}`
+        );
+
+        const taxDetailsOfCountry =
+            taxDetailsOfCountryRequest.data.data.taxDetails;
+
+        /* To store taxIds which are mandatory in a map */
+        let mandatoryTaxIdsMap = new Map();
+
+        /* To store all taxIds of the country as a map */
+        let taxDetailsOfCountryAsMap = new Map();
+
+        /* Looping through tax details of the country */
+        taxDetailsOfCountry.forEach((tax) => {
+            /* If the tax is mandatory */
+            if (!tax.isRegistrationOptional) {
+                /* Set it in mandatoryTaxIdsMap */
+                mandatoryTaxIdsMap.set(tax.taxId, true);
+            }
+            taxDetailsOfCountryAsMap.set(tax.taxId, tax);
+        });
+
+        /* Looping through the taxDetails passed */
+        body.taxDetails?.forEach((taxDetail) => {
+            /* If the taxId does not exist in tax details of the country: throw error */
+            if (!taxDetailsOfCountryAsMap.get(taxDetail.taxId)) {
+                throw new ApiError(
+                    422,
+                    "invalid taxid passed in taxDetails",
+                    []
+                );
+            }
+            /* If the tax id passed is mandatory, remove it from the map */
+            if (mandatoryTaxIdsMap.get(taxDetail.taxId)) {
+                mandatoryTaxIdsMap.delete(taxDetail.taxId);
+            }
+        });
+
+        /* If the mandatoryTaxIds map still consists of elements: throw error, some mandatory tax ids aren't passed */
+        if (mandatoryTaxIdsMap.size) {
+            throw new ApiError(422, "missing mandatory tax details", []);
+        }
+
+        await db.transaction(async (tx) => {
+            try {
+                /* Updating company in DB */
+                const companyUpdated = await tx
+                    .update(companies)
+                    .set({
+                        companyName: body.companyName,
+                        address: body.address,
+                        countryId: body.countryId,
+                        dayStartTime: body.dayStartTime,
+                        decimalRoundTo: body.decimalRoundTo,
+                        phoneNumber: body.phoneNumber,
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(companies.companyId, body.companyId))
+                    .returning();
+
+                if (!updateCompany.length) {
+                    throw new ApiError(500, "error updating company", []);
+                }
+
+                /* Delete old tax details */
+                await tx
+                    .delete(companyTaxMapping)
+                    .where(eq(companyTaxMapping.companyId, body.companyId));
+
+                /* Holds the companies new tax details */
+                let newCompanyTaxDetails: Array<{
+                    taxId: number;
+                    registrationNumber: string;
+                }> = [];
+
+                /* Inserting tax details in companyTaxMapping */
+                if (Array.isArray(body?.taxDetails)) {
+                    for (let taxDetail of body.taxDetails) {
+                        const newCompanyTax = await tx
+                            .insert(companyTaxMapping)
+                            .values({
+                                companyId: body.companyId,
+                                taxId: taxDetail.taxId,
+                                registrationNumber:
+                                    taxDetail.registrationNumber,
+                            })
+                            .returning({
+                                taxId: companyTaxMapping.taxId,
+                                registrationNumber:
+                                    companyTaxMapping.registrationNumber,
+                            });
+
+                        /* Adding the inserted tax mapping to the list */
+                        newCompanyTaxDetails.push(newCompanyTax[0]);
+                    }
+                }
+
+                /* Returning the updated company */
+                return res.status(200).json(
+                    new ApiResponse<UpdateCompanyResponse>(201, {
+                        company: {
+                            ...companyUpdated[0],
+                            taxDetails: newCompanyTaxDetails,
+                        },
+                        message: "company updated successfully",
+                    })
+                );
+            } catch (error) {
+                if (error instanceof PostgresError) {
+                    throw error;
+                }
+                throw error as ApiError;
+            }
+        });
+    }
+);
 export const getAccessibleCompanies = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
         /* Getting company ids accessible from userCompanyMapping table */
@@ -344,7 +504,6 @@ export const getCompany = asyncHandler(
 
 export const getAccessibleFeaturesOfCompany = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
-
         /* User Id from request object and companyId from params */
         const userId = req.user?.userId;
         const companyId = Number(req.params.companyId);

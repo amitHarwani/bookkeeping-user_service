@@ -35,9 +35,13 @@ app.use("/auth", authRouter);
 
 /* Company Router */
 import companyRouter from "./routes/company.routes";
-import { PostgresError } from "postgres";
 
 app.use("/company", companyRouter);
+
+import roleRouter from "./routes/role.routes";
+app.use("/role", roleRouter)
+
+import { PostgresError } from "postgres";
 
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     if (err instanceof PostgresError) {

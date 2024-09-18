@@ -178,7 +178,7 @@ export const addCompany = asyncHandler(
                 const companyAdminRole = await tx
                     .insert(roles)
                     .values({
-                        roleName: `${newCompany[0].companyName}_ADMIN`,
+                        roleName: `${newCompany[0].companyId}_ADMIN`,
                         companyId: companyId,
                         acl: defaultAdminFeatures[0].acl,
                     })
@@ -203,7 +203,6 @@ export const addCompany = asyncHandler(
                     .returning();
 
                 if (!userAssignedToRole.length) {
-                    console.log("Throwing error from here");
                     throw new ApiError(
                         500,
                         "error creating user company mapping",

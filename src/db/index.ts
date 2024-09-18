@@ -13,3 +13,5 @@ export type User = InferSelectModel<typeof schema.users>;
 export type Company = InferSelectModel<typeof schema.companies>
 
 export type TaxDetail = InferSelectModel<typeof schema.taxDetails>
+
+export type Role = InferSelectModel<typeof schema.roles>;

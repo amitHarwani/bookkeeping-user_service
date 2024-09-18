@@ -2,6 +2,7 @@ import { NextFunction, Request, Response, Router } from "express";
 import {
     addRoleValidator,
     getAllRolesValidator,
+    getCompanyAdminACLValidator,
     getRoleValidator,
     updateRoleValidator,
 } from "../validators/role.validators";
@@ -13,6 +14,7 @@ import {
 import {
     addRole,
     getAllRoles,
+    getCompanyAdminACL,
     getRole,
     updateRole,
 } from "../controllers/role.controllers";
@@ -59,6 +61,17 @@ router.put(
     isUserLoggedIn,
     checkAccessMiddleware(24),
     updateRole
+);
+
+router.get(
+    "/get-company-admin-acl",
+    getCompanyAdminACLValidator(),
+    validateInput,
+    (req: Request, res: Response, next: NextFunction) => {
+        /* As this endpoint will only be required when adding or updating a role */
+        checkAccessMiddleware(24, Number(req?.query?.companyId));
+    },
+    getCompanyAdminACL
 );
 
 export default router;

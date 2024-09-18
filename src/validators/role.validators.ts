@@ -51,3 +51,10 @@ export const updateRoleValidator = () => {
         body("acl").isArray().withMessage("invalid acl field"),
     ];
 };
+
+
+export const getCompanyAdminACLValidator = () => {
+    return [
+        query("companyId").isInt().withMessage("invalid company id")
+    ]
+}

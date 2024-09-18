@@ -12,6 +12,7 @@ import { ApiResponse } from "../utils/ApiResponse";
 import { GetRoleResponse } from "../dto/role/get_role_dto";
 import { AddRoleRequest, AddRoleResponse } from "../dto/role/add_role_dto";
 import { UpdateRoleRequest } from "../dto/role/update_role_dto";
+import { GetCompanyAdminACLResponse } from "../dto/role/get_company_admin_acl_dto";
 
 export const getAllRoles = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
@@ -274,6 +275,36 @@ export const updateRole = asyncHandler(
             new ApiResponse<AddRoleResponse>(201, {
                 role: roleUpdated[0],
                 message: "role updated successfully",
+            })
+        );
+    }
+);
+
+export const getCompanyAdminACL = asyncHandler(
+    async (req: Request, res: Response, next: NextFunction) => {
+        const companyId = Number(req?.query?.companyId);
+
+        /* 
+        Finding the role, where the companyId match and the roleName is companyId_ADMIN, indicating the main admin role 
+        */
+        const recordsFound = await db
+            .select({ acl: roles.acl })
+            .from(roles)
+            .where(
+                and(
+                    eq(roles.companyId, companyId),
+                    eq(roles.roleName, `${companyId}_ADMIN`)
+                )
+            );
+
+        /* ACL not found */
+        if (!recordsFound.length || !recordsFound?.[0]?.acl) {
+            throw new ApiError(404, "acl not found", []);
+        }
+
+        return res.status(200).json(
+            new ApiResponse<GetCompanyAdminACLResponse>(200, {
+                acl: recordsFound[0].acl,
             })
         );
     }

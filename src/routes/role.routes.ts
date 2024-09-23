@@ -67,9 +67,10 @@ router.get(
     "/get-company-admin-acl",
     getCompanyAdminACLValidator(),
     validateInput,
+    isUserLoggedIn,
     (req: Request, res: Response, next: NextFunction) => {
         /* As this endpoint will only be required when adding or updating a role */
-        checkAccessMiddleware(24, Number(req?.query?.companyId));
+        checkAccessMiddleware(24, Number(req?.query?.companyId))(req, res, next);
     },
     getCompanyAdminACL
 );

@@ -159,8 +159,8 @@ export const addRole = asyncHandler(
         body.acl.forEach((featureId) => {
             /* If the adminACL does not include the feature id, throw error */
             if (
-                typeof featureId != "number" ||
-                !adminACL?.includes(featureId)
+                isNaN(Number(featureId)) ||
+                !adminACL?.includes(Number(featureId))
             ) {
                 throw new ApiError(422, "invalid ACL passed", []);
             }

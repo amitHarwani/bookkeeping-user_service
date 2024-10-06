@@ -31,15 +31,19 @@ app.use(express.urlencoded({ extended: true }));
 /* Auth Router */
 import authRouter from "./routes/auth.routes";
 
-app.use("/auth", authRouter);
-
 /* Company Router */
 import companyRouter from "./routes/company.routes";
 
-app.use("/company", companyRouter);
-
+/* Role Router */
 import roleRouter from "./routes/role.routes";
-app.use("/role", roleRouter)
+
+/* User Router */
+import userRouter from "./routes/user.routes";
+
+app.use("/auth", authRouter);
+app.use("/company", companyRouter);
+app.use("/role", roleRouter);
+app.use("/user", userRouter);
 
 import { PostgresError } from "postgres";
 

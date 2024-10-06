@@ -89,3 +89,10 @@ export const updateUserValidator = () => {
             .withMessage("mobile number is required"),
     ];
 };
+
+export const getUserValidator = () => {
+    return [
+        query("userId").isString().notEmpty().withMessage("invalid user id").escape(),
+        query("companyId").isInt().withMessage("invalid company id").optional()
+    ]
+}

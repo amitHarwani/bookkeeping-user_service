@@ -1,10 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import asyncHandler from "../utils/async_handler";
-import {
-    roles,
-    userCompanyMapping,
-    users,
-} from "db_service";
+import { roles, userCompanyMapping, users } from "db_service";
 import { db } from "../db";
 import { and, eq, inArray, not, or } from "drizzle-orm";
 import { notEqual } from "assert";
@@ -17,7 +13,11 @@ import {
     UpdateUserAccessRequest,
     UpdateUserAccessResponse,
 } from "../dto/user/update_user_access_dto";
-import { UpdateUserRequest, UpdateUserResponse } from "../dto/user/update_user_dto";
+import {
+    UpdateUserRequest,
+    UpdateUserResponse,
+} from "../dto/user/update_user_dto";
+import { GetUserResponse } from "../dto/user/get_user_dto";
 
 export const getAllUsersOfCompany = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
@@ -54,6 +54,45 @@ export const getAllUsersOfCompany = asyncHandler(
         return res.status(200).json(
             new ApiResponse<GetAllUsersOfCompanyResponse>(200, {
                 users: allUsers,
+            })
+        );
+    }
+);
+
+export const getUser = asyncHandler(
+    async (req: Request, res: Response, next: NextFunction) => {
+        const userId = req?.query?.userId as string;
+
+        const companyId = req?.query?.companyId as string | undefined;
+
+        /* Getting the user from users table */
+        const userFound = await db
+            .select()
+            .from(users)
+            .where(eq(users.userId, userId));
+
+        /* Company Query for user company mapping table */
+        let companyQuery;
+
+        /* If company id is passed */
+        if (companyId && !isNaN(Number(companyId))) {
+            /* Check for companies in user company mapping which match the companyId passed */
+            companyQuery = eq(userCompanyMapping.companyId, Number(companyId));
+        }
+
+        /* Getting the user access for the companies from userCompanyMapping table */
+        const userComapnyMapDetails = await db
+            .select({
+                companyId: userCompanyMapping.companyId,
+                roleId: userCompanyMapping.roleId,
+            })
+            .from(userCompanyMapping)
+            .where(and(eq(userCompanyMapping.userId, userId), companyQuery));
+
+        return res.status(200).json(
+            new ApiResponse<GetUserResponse>(200, {
+                user: userFound[0],
+                userCompanyMappings: userComapnyMapDetails,
             })
         );
     }
@@ -235,19 +274,25 @@ export const updateUser = asyncHandler(
         }
 
         /* Updating user */
-        const userUpdated = await db.update(users).set({
-            fullName: body.fullName,
-            email: body.email,
-            mobileNumber: body.mobileNumber,
-            countryId: body.countryId
-        }).where(eq(users.userId, body.userId)).returning();
+        const userUpdated = await db
+            .update(users)
+            .set({
+                fullName: body.fullName,
+                email: body.email,
+                mobileNumber: body.mobileNumber,
+                countryId: body.countryId,
+            })
+            .where(eq(users.userId, body.userId))
+            .returning();
 
-        if(!userUpdated.length){
-            throw new ApiError(400, "invalid user id passed", [])
+        if (!userUpdated.length) {
+            throw new ApiError(400, "invalid user id passed", []);
         }
 
-        return res.status(200).json(new ApiResponse<UpdateUserResponse>(200, {
-            user: userUpdated[0]
-        }))
+        return res.status(200).json(
+            new ApiResponse<UpdateUserResponse>(200, {
+                user: userUpdated[0],
+            })
+        );
     }
 );

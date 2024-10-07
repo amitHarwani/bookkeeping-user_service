@@ -41,7 +41,7 @@ router.get(
     isUserLoggedIn,
     (req: Request, res: Response, next: NextFunction) => {
         /* If the user is getting its own details */
-        if (req.body.userId == req.user?.userId) {
+        if (req?.query?.userId == req.user?.userId) {
             next();
         }
         /* If user is getting other users details, then company Id is required to know if they have access to do the same */

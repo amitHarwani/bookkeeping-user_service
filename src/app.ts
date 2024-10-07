@@ -57,6 +57,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
             stack: err.stack,
         });
     } else {
+        logger.error("Error", err, JSON.stringify(err));
         const apiError = err as ApiError;
         return res.status(apiError.statusCode || 500).json({
             statusCode: apiError.statusCode,

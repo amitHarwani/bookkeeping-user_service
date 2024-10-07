@@ -83,7 +83,7 @@ export const getUser = asyncHandler(
         }
 
         /* Getting the user access for the companies from userCompanyMapping table */
-        const userComapnyMapDetails = await db
+        const userCompanyMapDetails = await db
             .select({
                 companyId: userCompanyMapping.companyId,
                 roleId: userCompanyMapping.roleId,
@@ -94,7 +94,7 @@ export const getUser = asyncHandler(
         return res.status(200).json(
             new ApiResponse<GetUserResponse>(200, {
                 user: userFound[0],
-                userCompanyMappings: userComapnyMapDetails,
+                userCompanyMappings: userCompanyMapDetails,
             })
         );
     }

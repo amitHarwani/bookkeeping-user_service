@@ -203,6 +203,7 @@ export const updateUserAccess = asyncHandler(
                 .update(users)
                 .set({
                     isActive: body.isActive,
+                    updatedAt: new Date()
                 })
                 .where(eq(users.userId, body.userId))
                 .returning();
@@ -283,6 +284,7 @@ export const updateUser = asyncHandler(
                 email: body.email,
                 mobileNumber: body.mobileNumber,
                 countryId: body.countryId,
+                updatedAt: new Date()
             })
             .where(eq(users.userId, body.userId))
             .returning();

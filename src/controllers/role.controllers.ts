@@ -4,7 +4,7 @@ import {
     GetAllRolesRequest,
     GetAllRolesResponse,
 } from "../dto/role/get_all_roles_dto";
-import { and, eq, getTableColumns, gt, not, or, sql } from "drizzle-orm";
+import { and, asc, eq, getTableColumns, gt, not, or, sql } from "drizzle-orm";
 import { roles } from "db_service";
 import { db } from "../db";
 import { ApiError } from "../utils/ApiError";
@@ -64,7 +64,8 @@ export const getAllRoles = asyncHandler(
         const rolesFound = await db
             .select(columnsToSelect)
             .from(roles)
-            .where(whereClause);
+            .where(whereClause)
+            .orderBy(asc(roles.roleId));
 
         /* Last role  */
         const lastRole = rolesFound?.[rolesFound?.length - 1];

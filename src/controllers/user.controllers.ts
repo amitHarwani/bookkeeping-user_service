@@ -43,13 +43,15 @@ export const getAllUsersOfCompany = asyncHandler(
             );
 
         /* User IDs array of all users assigned to the company*/
-        const userIds = usersOfCompany.map((user) => user.userId as string);
+        const userIds = usersOfCompany.map((user) => {
+            return user.userId as string;
+        });
 
         /* Finding the users in users table */
         const allUsers = await db
             .select()
             .from(users)
-            .where(inArray(users.userId, Object.keys(userIds)));
+            .where(inArray(users.userId, userIds));
 
         return res.status(200).json(
             new ApiResponse<GetAllUsersOfCompanyResponse>(200, {

@@ -49,6 +49,7 @@ import { PostgresError } from "postgres";
 
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     if (err instanceof PostgresError) {
+        logger.error("Postgres Error", err, JSON.stringify(err))
         return res.status(500).json({
             statusCode: 500,
             message: err.detail,

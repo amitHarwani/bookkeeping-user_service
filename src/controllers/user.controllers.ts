@@ -155,6 +155,7 @@ export const addUser = asyncHandler(
                     countryId: body.countryId,
                     password: hashedPassword,
                     isActive: body.isActive,
+                    isSubUser: true
                 })
                 .returning();
 

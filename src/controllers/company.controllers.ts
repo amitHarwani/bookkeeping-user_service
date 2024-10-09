@@ -28,6 +28,7 @@ import {
     UpdateCompanyRequest,
     UpdateCompanyResponse,
 } from "../dto/company/update_company_dto";
+import { GetCompanyGroupResponse } from "../dto/company/get_company_group_dto";
 
 export const addCompany = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
@@ -536,6 +537,36 @@ export const getAccessibleFeaturesOfCompany = asyncHandler(
         return res.status(200).json(
             new ApiResponse<GetAccessibleFeaturesOfCompanyResponse>(200, {
                 acl: acl[0].acl,
+            })
+        );
+    }
+);
+
+export const getCompanyGroup = asyncHandler(
+    async (req: Request, res: Response, next: NextFunction) => {
+        /* Company ID making the request */
+        const companyId = Number(req?.query?.companyId);
+
+        /* Main Company ID, of the company making the request */
+        const mainCompanyId = Number(req?.query?.mainCompanyId);
+
+        /* Getting all branches of the main company, ignoring the companyId which made the request */
+        const companiesInGroup = await db
+            .select({
+                companyId: companies.companyId,
+                companyName: companies.companyName,
+            })
+            .from(companies)
+            .where(
+                and(
+                    eq(companies.mainBranchId, mainCompanyId),
+                    not(eq(companies.companyId, companyId))
+                )
+            );
+
+        return res.status(200).json(
+            new ApiResponse<GetCompanyGroupResponse>(200, {
+                companies: companiesInGroup,
             })
         );
     }

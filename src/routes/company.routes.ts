@@ -6,6 +6,7 @@ import {
 import {
     addCompanyValidator,
     getAccessibleFeaturesOfCompanyValidator,
+    getCompanyGroupValidator,
     getCompanyValidator,
     updateCompanyValidator,
 } from "../validators/company.validators";
@@ -15,6 +16,7 @@ import {
     getAccessibleCompanies,
     getAccessibleFeaturesOfCompany,
     getCompany,
+    getCompanyGroup,
     updateCompany,
 } from "../controllers/company.controllers";
 import { canUserCreateCompany } from "../middlewares/company.middleware";
@@ -57,4 +59,11 @@ router.get(
     getAccessibleFeaturesOfCompany
 );
 
+router.get(
+    "/get-company-group",
+    getCompanyGroupValidator(),
+    validateInput,
+    isUserLoggedIn,
+    getCompanyGroup
+);
 export default router;

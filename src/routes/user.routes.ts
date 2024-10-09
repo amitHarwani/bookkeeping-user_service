@@ -18,12 +18,14 @@ import {
     updateUserAccess,
 } from "../controllers/user.controllers";
 import { ApiError } from "../utils/ApiError";
+import { validateInput } from "../validators";
 
 const router = Router();
 
 router.get(
     "/get-all-users-of-company",
     getAllUsersOfCompanyValidator(),
+    validateInput,
     isUserLoggedIn,
     (req: Request, res: Response, next: NextFunction) => {
         checkAccessMiddleware(25, Number(req?.query?.companyId))(
@@ -38,6 +40,7 @@ router.get(
 router.get(
     "/get-user",
     getUserValidator(),
+    validateInput,
     isUserLoggedIn,
     (req: Request, res: Response, next: NextFunction) => {
         /* If the user is getting its own details */
@@ -60,6 +63,7 @@ router.get(
 router.post(
     "/add-user",
     addUserValidator(),
+    validateInput,
     isUserLoggedIn,
     checkAccessMiddleware(26),
     addUser
@@ -68,6 +72,7 @@ router.post(
 router.patch(
     "/update-user-access",
     updateUserAccessValidator(),
+    validateInput,
     isUserLoggedIn,
     checkAccessMiddleware(26),
     updateUserAccess
@@ -76,6 +81,7 @@ router.patch(
 router.put(
     "/update-user",
     updateUserValidator(),
+    validateInput,
     isUserLoggedIn,
     (req: Request, res: Response, next: NextFunction) => {
         /* If the user is updating its own details */

@@ -1,4 +1,4 @@
-import { body, param } from "express-validator";
+import { body, param, query } from "express-validator";
 
 export const addCompanyValidator = () => {
     return [
@@ -141,5 +141,12 @@ export const getCompanyValidator = () => {
 export const getAccessibleFeaturesOfCompanyValidator = () => {
     return [
         param("companyId").isInt().withMessage("invalid company id")
+    ]
+}
+
+export const getCompanyGroupValidator = () => {
+    return [
+        query("companyId").isInt().withMessage("invalid company id"),
+        query("mainCompanyId").isInt().withMessage("invalid main company id")
     ]
 }

@@ -1,4 +1,3 @@
-import axios from "axios";
 import {
     companies,
     companyTaxMapping,
@@ -9,7 +8,8 @@ import {
 import { and, eq, inArray, not, sql } from "drizzle-orm";
 import { NextFunction, Request, Response } from "express";
 import { PostgresError } from "postgres";
-import { db, TaxDetail } from "../db";
+import { USER_TYPES } from "../constants";
+import { db } from "../db";
 import {
     AddCompanyRequest,
     AddCompanyResponse,
@@ -18,17 +18,17 @@ import {
     CompanyWithTaxDetails,
     GetAccessibleCompaniesResponse,
 } from "../dto/company/get_accessible_companies_dto";
-import { ApiError } from "../utils/ApiError";
-import { ApiResponse } from "../utils/ApiResponse";
-import asyncHandler from "../utils/async_handler";
-import { GetCompanyResponse } from "../dto/company/get_company_dto";
 import { GetAccessibleFeaturesOfCompanyResponse } from "../dto/company/get_accessible_features_of_company";
-import { USER_TYPES } from "../constants";
+import { GetCompanyResponse } from "../dto/company/get_company_dto";
+import { GetCompanyGroupResponse } from "../dto/company/get_company_group_dto";
 import {
     UpdateCompanyRequest,
     UpdateCompanyResponse,
 } from "../dto/company/update_company_dto";
-import { GetCompanyGroupResponse } from "../dto/company/get_company_group_dto";
+import { getTaxDetailsOfCountry } from "../grpc/sys_admin_client";
+import { ApiError } from "../utils/ApiError";
+import { ApiResponse } from "../utils/ApiResponse";
+import asyncHandler from "../utils/async_handler";
 
 export const addCompany = asyncHandler(
     async (req: Request, res: Response, next: NextFunction) => {
@@ -54,14 +54,7 @@ export const addCompany = asyncHandler(
         }
 
         /* Getting taxDetails of country */
-        const taxDetailsOfCountryRequest = await axios.get<
-            ApiResponse<{ taxDetails: TaxDetail[] }>
-        >(
-            `${process.env.SYSTEM_ADMIN_SERVICE}${process.env.GET_TAXDETAILS_OF_COUNTRY_PATH}/${body.countryId}`
-        );
-
-        const taxDetailsOfCountry =
-            taxDetailsOfCountryRequest.data.data.taxDetails;
+        const taxDetailsOfCountry = await getTaxDetailsOfCountry(body.countryId);
 
         /* To store taxIds which are mandatory in a map */
         let mandatoryTaxIdsMap = new Map();
@@ -258,14 +251,8 @@ export const updateCompany = asyncHandler(
         }
 
         /* Getting taxDetails of country */
-        const taxDetailsOfCountryRequest = await axios.get<
-            ApiResponse<{ taxDetails: TaxDetail[] }>
-        >(
-            `${process.env.SYSTEM_ADMIN_SERVICE}${process.env.GET_TAXDETAILS_OF_COUNTRY_PATH}/${body.countryId}`
-        );
+        const taxDetailsOfCountry = await getTaxDetailsOfCountry(body.countryId);
 
-        const taxDetailsOfCountry =
-            taxDetailsOfCountryRequest.data.data.taxDetails;
 
         /* To store taxIds which are mandatory in a map */
         let mandatoryTaxIdsMap = new Map();

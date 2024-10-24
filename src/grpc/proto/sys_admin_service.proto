@@ -1,0 +1,29 @@
+
+syntax = "proto3";
+
+package sys_admin_service;
+
+service SystemAdminService {
+
+    rpc GetTaxDetailsOfCountry(CountryId) returns (TaxDetailsOfCountryResponse) {}
+
+
+}
+
+message CountryId {
+    int32 countryId = 1;
+}
+
+message TaxDetail {
+    int32 countryId = 1;
+    int32 taxId = 2;
+    string taxName = 3;
+    string taxPercentage = 4;
+    string taxNickname = 5;
+    bool isTaxOnInvoice = 6;
+    bool isRegistrationOptional = 7;
+}
+message TaxDetailsOfCountryResponse {
+    bool isSuccess = 1;
+    repeated TaxDetail taxDetails = 2;
+}

@@ -1,0 +1,10 @@
+node_modules
+.npm
+dist
+.env
+.env.*
+.gitignore
+.prettierrc
+.prettierignore
+README.md
+Makefile

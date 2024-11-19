@@ -1,8 +1,20 @@
 import argon2, { argon2i } from "argon2";
-import { platformFeatures, roles, userCompanyMapping } from "db_service";
+import { platformFeatures, roles, userCompanyMapping, users } from "db_service";
 import { and, eq, isNull } from "drizzle-orm";
 import jwt, { JsonWebTokenError } from "jsonwebtoken";
 import { db, User } from "../../db";
+import fs from "fs";
+import { ApiError } from "../../utils/ApiError";
+
+/* Access Token Key from enviornment variable or file */
+const ACCESS_TOKEN_KEY =
+    process.env.ACCESS_TOKEN_KEY ||
+    fs.readFileSync(process.env.ACCESS_TOKEN_KEY_FILE as string, "utf-8");
+
+/* Refresh Token Key from enviornment variable or file */
+const REFRESH_TOKEN_KEY =
+    process.env.REFRESH_TOKEN_KEY ||
+    fs.readFileSync(process.env.REFRESH_TOKEN_KEY_FILE as string, "utf-8");
 
 /* Hash password with argon2 */
 export const hashPassword = async (password: string): Promise<string> => {
@@ -25,7 +37,7 @@ export const generateAccessToken = (user: User) => {
             fullName: user.fullName,
             email: user.email,
         },
-        process.env.ACCESS_TOKEN_KEY as string,
+        ACCESS_TOKEN_KEY,
         { expiresIn: process.env.ACCESS_TOKEN_EXPIRY }
     );
 };
@@ -36,7 +48,7 @@ export const generateRefreshToken = (user: User) => {
         {
             userId: user.userId,
         },
-        process.env.REFRESH_TOKEN_KEY as string,
+        REFRESH_TOKEN_KEY as string,
         { expiresIn: process.env.REFRESH_TOKEN_EXPIRY }
     );
 };
@@ -46,7 +58,7 @@ export const decodeRefreshToken = (refreshToken: string) => {
     try {
         const decoded = jwt.verify(
             refreshToken,
-            process.env.REFRESH_TOKEN_KEY as string
+            REFRESH_TOKEN_KEY as string
         );
         return decoded;
     } catch (error) {
@@ -59,7 +71,7 @@ export const decodeAccessToken = (accessToken: string) => {
     try {
         const decoded = jwt.verify(
             accessToken,
-            process.env.ACCESS_TOKEN_KEY as string
+            ACCESS_TOKEN_KEY as string
         );
         return decoded;
     } catch (error) {
@@ -67,8 +79,42 @@ export const decodeAccessToken = (accessToken: string) => {
     }
 };
 
+export const isUserLoggedInHelper = async (token?: string) => {
+    /* No bearer token provided */
+    if (!token) {
+        throw new ApiError(401, "access token not found", []);
+    }
+
+    const decodedToken = decodeAccessToken(token);
+
+    /* Invalid token */
+    if (
+        decodedToken instanceof JsonWebTokenError ||
+        typeof decodedToken === "string" ||
+        (typeof decodedToken === "object" && !decodedToken?.userId)
+    ) {
+        throw new ApiError(401, "invalid access token", []);
+    }
+
+    /* Find the user by id from the token payload */
+    const usersFound = await db
+        .select()
+        .from(users)
+        .where(eq(users.userId, decodedToken.userId));
+
+    /* User not found, or is inactive */
+    if (!usersFound.length || !usersFound[0].isActive) {
+        throw new ApiError(401, "invalid access token", []);
+    }
+    if (!usersFound[0].isLoggedIn) {
+        throw new ApiError(401, "user is not logged in", []);
+    }
+
+    return usersFound[0];
+};
+
 export const checkUserAccessHelper = async (
-    companyId: number,
+    companyId: number | null,
     featureId: number,
     userId: string
 ) => {
@@ -85,8 +131,12 @@ export const checkUserAccessHelper = async (
         .from(userCompanyMapping)
         .where(and(eq(userCompanyMapping.userId, userId), companyIdCheck));
 
+    if(!userRoleDBRequest.length){
+        return false;
+    }
+
     const userACLDBRequest = db
-        .select({acl: roles.acl})
+        .select({ acl: roles.acl })
         .from(roles)
         .where(eq(roles.roleId, userRoleDBRequest[0].roleId as number));
 
@@ -119,7 +169,7 @@ export const checkUserAccessHelper = async (
         if (companyId == null) {
             return true;
         } else {
-        /* Return based upon whether feature is enabled or not */
+            /* Return based upon whether feature is enabled or not */
             return feature[0].isEnabled;
         }
     } else {

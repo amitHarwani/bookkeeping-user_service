@@ -38,8 +38,9 @@ COPY --from=build usr/src/app/node_modules ./node_modules
 # Move to dist folder
 WORKDIR /usr/src/app/dist
 
-# Documentation: Exposing port 8000
+# Documentation: Exposing port 8000 (Web server) and 50050 (Grpc) 
 EXPOSE 8000
+EXPOSE 50050
 
 # Running the node server
 CMD ["node", "index.js"]

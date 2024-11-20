@@ -40,10 +40,10 @@ import roleRouter from "./routes/role.routes";
 /* User Router */
 import userRouter from "./routes/user.routes";
 
-app.use("/auth", authRouter);
-app.use("/company", companyRouter);
-app.use("/role", roleRouter);
-app.use("/user", userRouter);
+app.use("/user/auth", authRouter);
+app.use("/user/company", companyRouter);
+app.use("/user/role", roleRouter);
+app.use("/user/user", userRouter);
 
 import { PostgresError } from "postgres";
 

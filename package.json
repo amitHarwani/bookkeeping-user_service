@@ -8,7 +8,7 @@
     "dev": "nodemon ./src/index.ts",
     "updateSchemaCommit": "npm i git+https://github.com/amitHarwani/bookkeeping-db_service.git && git add . && git commit -m \"update schema\" && git push -u origin main",
     "proto:gen": "protoc --plugin=protoc-gen-ts_proto=.\\node_modules\\.bin\\protoc-gen-ts_proto.cmd --ts_proto_out=. --ts_proto_opt=outputServices=grpc-js,env=node,esModuleInterop=true ./src/grpc/proto/*.proto",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "author": "Amit Harwani",
   "license": "ISC",
@@ -31,11 +31,14 @@
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
     "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.14",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/morgan": "^1.9.9",
     "@types/node": "^22.0.0",
+    "jest": "^29.7.0",
     "nodemon": "^3.1.4",
     "prettier": "^3.3.3",
+    "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
     "ts-proto": "^2.2.5",
     "typescript": "^5.5.4"
